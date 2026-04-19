@@ -3,58 +3,77 @@ package sync
 import (
 	"fmt"
 
-	"github.com/example/vaultpull/internal/config"
-	"github.com/example/vaultpull/internal/dotenv"
-	"github.com/example/vaultpull/internal/vault"
+	"github.com/user/vaultpull/internal/audit"
+	"github.com/user/vaultpull/internal/config"
+	"github.com/user/vaultpull/internal/dotenv"
+	"github.com/user/vaultpull/internal/vault"
 )
 
-// Result holds the outcome of a sync operation.
-type Result struct {
-	SecretsCount int
-	OutputPath   string
-	BackedUp     bool
-}
-
-// Syncer orchestrates pulling secrets from Vault and writing them to a .env file.
+// Syncer orchestrates fetching secrets from Vault and writing them to a .env file.
 type Syncer struct {
-	client *vault.Client
 	cfg    *config.Config
+	client *vault.Client
+	audit  *audit.Logger
 }
 
-// New creates a new Syncer from the provided config.
+// New creates a Syncer from the provided config.
 func New(cfg *config.Config) (*Syncer, error) {
-	client, err := vault.NewClient(cfg.VaultAddress, cfg.VaultToken)
+	client, err := vault.NewClient(cfg.VaultAddr, cfg.Token)
 	if err != nil {
-		return nil, fmt.Errorf("sync: failed to create vault client: %w", err)
+		return nil, fmt.Errorf("vault client: %w", err)
 	}
-	return &Syncer{client: client, cfg: cfg}, nil
+	var al *audit.Logger
+	if cfg.AuditLog != "" {
+		al = audit.NewLogger(cfg.AuditLog)
+	}
+	return &Syncer{cfg: cfg, client: client, audit: al}, nil
 }
 
-// Run performs the full sync: fetch secrets, merge with existing file, write output.
-func (s *Syncer) Run() (*Result, error) {
+// Run fetches secrets and writes them to the output .env file.
+func (s *Syncer) Run() error {
 	secrets, err := s.client.GetSecrets(s.cfg.SecretPath)
-	if err != nil {
-		return nil, fmt.Errorf("sync: failed to get secrets: %w", err)
+
+	entry := audit.Entry{
+		SecretPath: s.cfg.SecretPath,
+		OutputFile: s.cfg.OutputFile,
+		Status:     "success",
 	}
 
-	merged, err := dotenv.Merge(s.cfg.OutputFile, secrets, s.cfg.Overwrite)
 	if err != nil {
-		return nil, fmt.Errorf("sync: failed to merge secrets: %w", err)
+		entry.Status = "error"
+		entry.Error = err.Error()
+		s.recordAudit(entry)
+		return fmt.Errorf("get secrets: %w", err)
 	}
 
-	w, err := dotenv.NewWriter(s.cfg.OutputFile, s.cfg.Backup)
+	keys := make([]string, 0, len(secrets))
+	for k := range secrets {
+		keys = append(keys, k)
+	}
+	entry.Keys = keys
+
+	merged, err := dotenv.Merge(s.cfg.OutputFile, secrets)
 	if err != nil {
-		return nil, fmt.Errorf("sync: failed to create writer: %w", err)
+		entry.Status = "error"
+		entry.Error = err.Error()
+		s.recordAudit(entry)
+		return fmt.Errorf("merge: %w", err)
 	}
 
-	bacedUp, err := w.Write(merged)
-	if err != nil {
-		return nil, fmt.Errorf("sync: failed to write output: %w", err)
+	w := dotenv.NewWriter(s.cfg.OutputFile)
+	if err := w.Write(merged); err != nil {
+		entry.Status = "error"
+		entry.Error = err.Error()
+		s.recordAudit(entry)
+		return fmt.Errorf("write: %w", err)
 	}
 
-	return &Result{
-		SecretsCount: len(merged),
-		OutputPath:   s.cfg.OutputFile,
-		BackedUp:     bacedUp,
-	}, nil
+	s.recordAudit(entry)
+	return nil
+}
+
+func (s *Syncer) recordAudit(e audit.Entry) {
+	if s.audit != nil {
+		_ = s.audit.Record(e)
+	}
 }
