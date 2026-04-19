@@ -1,0 +1,23 @@
+# vaultpull configuration example
+# Copy this file to .vaultpull.yaml and fill in your values.
+
+# Address of your HashiCorp Vault instance.
+# Defaults to http://127.0.0.1:8200
+# Can also be set via VAULT_ADDR environment variable.
+vault_addr: http://127.0.0.1:8200
+
+# Vault authentication token.
+# Required. Can also be set via VAULT_TOKEN environment variable.
+vault_token: s.XXXXXXXXXXXXXXXX
+
+# KV mount path (v2 secrets engine mount).
+# Defaults to "secret".
+mount_path: secret
+
+# Path to the secret inside the mount.
+# Required. Example: "myapp/production"
+secret_path: myapp/production
+
+# Local file to write the secrets into.
+# Defaults to ".env" in the current directory.
+output_file: .env
