@@ -42,3 +42,28 @@ func TestReadAll_ReturnsWrittenEntries(t *testing.T) {
 		t.Errorf("unexpected error field: %s", entries[1].Error)
 	}
 }
+
+func TestReadAll_PreservesEntryOrder(t *testing.T) {
+	tmp := t.TempDir() + "/audit.log"
+	l := NewLogger(tmp)
+
+	paths := []string{"secret/first", "secret/second", "secret/third"}
+	for _, p := range paths {
+		if err := l.Record(Entry{SecretPath: p, Status: "success"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, err := ReadAll(tmp)
+	if err != nil {
+		t.Fatalf("read error: %v", err)
+	}
+	if len(entries) != len(paths) {
+		t.Fatalf("expected %d entries, got %d", len(paths), len(entries))
+	}
+	for i, p := range paths {
+		if entries[i].SecretPath != p {
+			t.Errorf("entry %d: expected path %q, got %q", i, p, entries[i].SecretPath)
+		}
+	}
+}
