@@ -16,8 +16,21 @@ func newFakeVault(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"data":{"data":{"API_KEY":"abc123","DB_PASS":"secret"}}}`))
+		_, _ = w.Write([]byte(`{"data":{"data":{"API_KEY":"abc123","DB_PASS":"secret"}}}}`))
 	}))
+}
+
+// newTestConfig returns a Config wired to the given fake Vault server and
+// output path, with sensible defaults for most tests.
+func newTestConfig(srvURL, outputFile string) *config.Config {
+	return &config.Config{
+		VaultAddress: srvURL,
+		VaultToken:   "test-token",
+		SecretPath:   "secret/myapp",
+		OutputFile:   outputFile,
+		Overwrite:    true,
+		Backup:       false,
+	}
 }
 
 func TestRun_WritesSecrets(t *testing.T) {
@@ -27,14 +40,7 @@ func TestRun_WritesSecrets(t *testing.T) {
 	tmpDir := t.TempDir()
 	output := filepath.Join(tmpDir, ".env")
 
-	cfg := &config.Config{
-		VaultAddress: srv.URL,
-		VaultToken:   "test-token",
-		SecretPath:   "secret/myapp",
-		OutputFile:   output,
-		Overwrite:    true,
-		Backup:       false,
-	}
+	cfg := newTestConfig(srv.URL, output)
 
 	s, err := sync.New(cfg)
 	if err != nil {
