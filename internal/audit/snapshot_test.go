@@ -80,3 +80,26 @@ func TestLoadSnapshot_RoundTrip(t *testing.T) {
 		}
 	}
 }
+
+func TestSaveSnapshot_Overwrite(t *testing.T) {
+	dir := t.TempDir()
+	original := map[string]string{"KEY": "original"}
+	updated := map[string]string{"KEY": "updated", "NEW": "value"}
+
+	if err := SaveSnapshot(dir, "overwrite-test", "secret/app", original); err != nil {
+		t.Fatalf("first save: %v", err)
+	}
+	if err := SaveSnapshot(dir, "overwrite-test", "secret/app", updated); err != nil {
+		t.Fatalf("second save: %v", err)
+	}
+	s, err := LoadSnapshot(dir, "overwrite-test")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if s.Secrets["KEY"] != "updated" {
+		t.Errorf("expected overwritten value %q, got %q", "updated", s.Secrets["KEY"])
+	}
+	if len(s.Secrets) != len(updated) {
+		t.Errorf("secrets count: got %d, want %d", len(s.Secrets), len(updated))
+	}
+}
