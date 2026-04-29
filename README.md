@@ -39,6 +39,7 @@ ANOTHER_KEY=another_value
 | `--addr` | Vault server address | `$VAULT_ADDR` |
 | `--token` | Vault token | `$VAULT_TOKEN` |
 | `--overwrite` | Overwrite existing file | `false` |
+| `--dry-run` | Print secrets to stdout without writing to file | `false` |
 
 ---
 
@@ -46,6 +47,12 @@ ANOTHER_KEY=another_value
 
 ```bash
 vaultpull --path secret/data/production --output .env.production --overwrite
+```
+
+Preview secrets without writing to disk:
+
+```bash
+vaultpull --path secret/data/production --dry-run
 ```
 
 ---
