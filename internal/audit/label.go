@@ -76,3 +76,19 @@ func LoadLabels(dir string) ([]Label, error) {
 	}
 	return labels, nil
 }
+
+// FindLabel returns the first label matching the given name, path, and key.
+// Returns nil if no matching label is found.
+func FindLabel(dir, name, path, key string) (*Label, error) {
+	labels, err := LoadLabels(dir)
+	if err != nil {
+		return nil, err
+	}
+	for i := range labels {
+		l := &labels[i]
+		if l.Name == name && l.Path == path && l.Key == key {
+			return l, nil
+		}
+	}
+	return nil, nil
+}
